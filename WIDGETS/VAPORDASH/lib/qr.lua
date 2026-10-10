@@ -1,16 +1,15 @@
--- QR-Code-Erzeuger: Byte-Modus, Fehlerkorrektur-Stufe M, Version 1-6
--- (bis 106 Zeichen), feste Maske 2. Ablauf wie in der Referenz-
--- Implementierung von Project Nayuki (QR Code generator library, MIT-Lizenz).
+-- QR code generator: byte mode, error correction level M, version 1-6
+-- (up to 106 characters), fixed mask 2. Steps as in the reference
+-- implementation by Project Nayuki (QR Code generator library, MIT licence).
 --
--- EdgeTX erlaubt einem Widget pro refresh() nur ~20.000 Lua-Befehle und
--- stellt in der Widget-Umgebung keine Coroutinen bereit. Die Arbeit ist
--- deshalb in kleine Aufgaben zerlegt; M.step() erledigt pro Aufruf nur ein
--- Stueck davon.
+-- EdgeTX allows a widget only ~20,000 Lua instructions per refresh() and
+-- provides no coroutines in the widget environment. The work is therefore
+-- split into small tasks; M.step() only does one piece of it per call.
 
 local M = {}
 
--- Version -> { Datenwoerter je Block, Bloecke, Korrekturwoerter je Block,
---              Position des Ausrichtungsmusters (nil bei Version 1) }
+-- Version -> { data words per block, blocks, ECC words per block,
+--              position of the alignment pattern (nil for version 1) }
 local VERSIONS = {
   { 16, 1, 10, nil },
   { 28, 1, 16, 18 },
@@ -20,16 +19,16 @@ local VERSIONS = {
   { 27, 4, 16, 34 },
 }
 
-local WORK_PER_STEP = 200   -- Aufwand (etwa bearbeitete Module) je Aufruf
+local WORK_PER_STEP = 200   -- effort (roughly modules processed) per call
 
--- Feste Maske 2 (Spalte durch 3 teilbar): Bei geo:-Links schnitt sie in
--- einem Test mit 60 Zufallskoordinaten am besten ab (wenigste Strafpunkte
--- nach QR-Standard, in 32 von 60 Faellen die beste). Alle 8 Masken
--- durchzurechnen kostete auf dem Sender rund 1,4 Mio. Lua-Befehle
--- (~10 s Wartezeit), bei kaum besserer Lesbarkeit.
+-- Fixed mask 2 (column divisible by 3): for geo: links it did best in a
+-- test with 60 random coordinates (fewest penalty points per the QR
+-- standard, the best one in 32 of 60 cases). Evaluating all 8 masks cost
+-- about 1.4 million Lua instructions on the radio (~10 s wait), with
+-- hardly better readability.
 local MASK = 2
 
--- Galois-Feld GF(256) mit Polynom 0x11D
+-- Galois field GF(256) with polynomial 0x11D
 local EXP, LOG = {}, {}
 do
   local x = 1
@@ -68,7 +67,7 @@ end
 
 local function formatBits(job, mask)
   local n = job.n
-  local rem = mask                    -- Stufe M = 0
+  local rem = mask                    -- level M = 0
   for _ = 1, 10 do rem = (rem << 1) ~ ((rem >> 9) * 0x537) end
   local b = ((mask << 10) | rem) ~ 0x5412
   local function bit(i) return (b >> i) & 1 == 1 end
@@ -86,10 +85,10 @@ local function putBits(bits, value, count)
   for i = count - 1, 0, -1 do bits[#bits + 1] = (value >> i) & 1 end
 end
 
--- Aufgaben in fester Reihenfolge. Jede erledigt bei einem Aufruf ein Stueck
--- und meldet zurueck: fertig?, Aufwand. job.k zaehlt innerhalb einer Aufgabe.
+-- Tasks in fixed order. Each one does a piece per call and returns:
+-- finished?, effort. job.k counts within a task.
 local TASKS = {
-  -- Version waehlen, Speicher anlegen
+  -- Pick the version, allocate memory
   function(job)
     for v = 1, #VERSIONS do
       local s = VERSIONS[v]
@@ -98,13 +97,13 @@ local TASKS = {
         break
       end
     end
-    if not job.ver then error("Text zu lang fuer QR-Code") end
+    if not job.ver then error("Text too long for QR code") end
     job.n = 17 + 4 * job.ver
     job.mods, job.fn = {}, {}
     return true, 10
   end,
 
-  -- Matrix leeren, eine Zeile je Aufruf
+  -- Clear the matrix, one row per call
   function(job)
     local n = job.n
     local base = job.k * n
@@ -116,7 +115,7 @@ local TASKS = {
     return job.k >= n, n
   end,
 
-  -- Taktlinien
+  -- Timing patterns
   function(job)
     for i = 0, job.n - 1 do
       setFn(job, 6, i, i % 2 == 0)
@@ -125,7 +124,7 @@ local TASKS = {
     return true, 2 * job.n
   end,
 
-  -- Suchmuster in drei Ecken, eines je Aufruf
+  -- Finder patterns in three corners, one per call
   function(job)
     local n = job.n
     if job.k == 0 then
@@ -139,7 +138,7 @@ local TASKS = {
     return job.k >= 3, 160
   end,
 
-  -- Ausrichtungsmuster, Formatbereich reservieren
+  -- Alignment pattern, reserve the format area
   function(job)
     local ap = VERSIONS[job.ver][4]
     if ap then
@@ -153,14 +152,14 @@ local TASKS = {
     return true, 60
   end,
 
-  -- Modus (Byte), Laenge und Zeichen als Bits, 8 Zeichen je Aufruf
+  -- Mode (byte), length and characters as bits, 8 characters per call
   function(job)
     local bits = job.bits
     if not bits then
       bits = {}
       job.bits = bits
       putBits(bits, 4, 4)
-      putBits(bits, #job.text, 8)     -- Version 1-9: 8 Bit Zeichenzahl
+      putBits(bits, #job.text, 8)     -- version 1-9: 8-bit character count
     end
     local last = math.min(#job.text, job.k + 8)
     for i = job.k + 1, last do putBits(bits, string.byte(job.text, i), 8) end
@@ -168,7 +167,7 @@ local TASKS = {
     return job.k >= #job.text, 64
   end,
 
-  -- Abschluss, Bits zu Bytes (8 Bytes je Aufruf), Fuellbytes
+  -- Terminator, bits to bytes (8 bytes per call), pad bytes
   function(job)
     local spec = VERSIONS[job.ver]
     local dataLen = spec[1] * spec[2]
@@ -195,7 +194,7 @@ local TASKS = {
     return true, 64
   end,
 
-  -- Generatorpolynom der Fehlerkorrektur, ein Faktor je Aufruf
+  -- Generator polynomial of the error correction, one factor per call
   function(job)
     local degree = VERSIONS[job.ver][3]
     local res = job.divisor
@@ -216,7 +215,7 @@ local TASKS = {
     return job.k >= degree, degree
   end,
 
-  -- Korrekturwoerter je Block (Polynomdivision), ein Datenwort je Aufruf
+  -- ECC words per block (polynomial division), one data word per call
   function(job)
     local spec = VERSIONS[job.ver]
     local perBlock, blocks, deg = spec[1], spec[2], spec[3]
@@ -245,7 +244,7 @@ local TASKS = {
     return job.block >= blocks, deg
   end,
 
-  -- Daten- und Korrekturwoerter blockweise verschraenken
+  -- Interleave data and ECC words block by block
   function(job)
     local spec = VERSIONS[job.ver]
     local perBlock, blocks, deg = spec[1], spec[2], spec[3]
@@ -261,7 +260,7 @@ local TASKS = {
     return true, #out
   end,
 
-  -- Datenbits im Zickzack von unten rechts einsetzen, ein Spaltenpaar je Aufruf
+  -- Place the data bits zigzag from the bottom right, one column pair per call
   function(job)
     local n = job.n
     if not job.right then
@@ -289,7 +288,7 @@ local TASKS = {
     return job.right < 1, 2 * n
   end,
 
-  -- Maske 2 anwenden (jede dritte Spalte), eine Zeile je Aufruf
+  -- Apply mask 2 (every third column), one row per call
   function(job)
     local n, mods, fn = job.n, job.mods, job.fn
     local base = job.k * n + 1
@@ -303,7 +302,7 @@ local TASKS = {
     return true, n // 3 + 40
   end,
 
-  -- Dunkle Module zeilenweise zu Strecken zusammenfassen (schnelleres Zeichnen)
+  -- Merge dark modules row by row into runs (faster drawing)
   function(job)
     local n, mods = job.n, job.mods
     local runs = job.runs or {}
@@ -345,13 +344,13 @@ local function work(job)
   end
 end
 
--- Neuen Auftrag anlegen; danach M.step() je refresh() aufrufen.
+-- Create a new job; then call M.step() once per refresh().
 function M.new(text)
   return { text = text, task = 1, k = 0, done = false }
 end
 
--- Ein Stueck weiterrechnen. Gibt true zurueck, sobald der Code fertig ist
--- (Ergebnis in job.result) oder ein Fehler auftrat (job.err).
+-- Compute the next piece. Returns true once the code is finished
+-- (result in job.result) or an error occurred (job.err).
 function M.step(job)
   if job.done then return true end
   local ok, err = pcall(work, job)

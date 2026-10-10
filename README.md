@@ -7,17 +7,14 @@ Telemetry widget for **EdgeTX** on the **RadioMaster TX16S MK3** (800×480), bui
 transmits on one screen. Battery, flight time and arming status are shown large and in
 traffic-light colours, so even a child can read it at a glance.
 
-The on-screen labels are in German. This page explains what they mean.
-
-![Vapor Dashboard in flight](docs/img/dashboard_flug.png)
+![Vapor Dashboard in flight](docs/img/dashboard_flight.png)
 
 ## Features
 
 - **Drone battery** as a large gauge with percentage, voltage (pack and per cell), current
-  and consumed mAh. Below 25 % it flashes "LANDEN!" (land now).
-- **Arming status** in plain words: GESICHERT (disarmed), SCHARF (armed), GESPERRT
-  (arming blocked, with the reason, e.g. "Gas nicht ganz unten" = throttle not low),
-  FAILSAFE, or KEIN SIGNAL (no link). The flight mode is shown below.
+  and consumed mAh. Below 25 % it flashes "LAND!".
+- **Arming status** in plain words: DISARMED, ARMED, BLOCKED (with the reason, e.g.
+  "Throttle not low"), FAILSAFE, or NO SIGNAL. The flight mode is shown below.
 - **Flight time** that only runs while the drone is armed. A new battery resets it.
 - **Motors** drawn as a top view of the quad, with the RPM of each motor and ESC temperature.
 - **Link:** link quality, signal, SNR, packet rate, TX power and downlink quality.
@@ -31,12 +28,12 @@ The on-screen labels are in German. This page explains what they mean.
 
 | | |
 |:---:|:---:|
-| ![Disarmed](docs/img/dashboard_gesichert.png) | ![Arming blocked](docs/img/dashboard_gesperrt.png) |
+| ![Disarmed](docs/img/dashboard_disarmed.png) | ![Arming blocked](docs/img/dashboard_blocked.png) |
 | Disarmed and ready | Arming blocked, with reason |
-| ![Battery low](docs/img/dashboard_akku_leer.png) | ![Link lost](docs/img/dashboard_signal_weg.png) |
+| ![Battery low](docs/img/dashboard_battery_low.png) | ![Link lost](docs/img/dashboard_link_lost.png) |
 | Battery low, motor 3 stopped, motor 2 warm | Link lost in flight, last position in yellow |
 
-![QR code with the last position](docs/img/qr_letzte_position.png)
+![QR code with the last position](docs/img/qr_last_position.png)
 
 *The images come from the PC preview with simulated telemetry, at the original size and with
 the EdgeTX fonts.*
@@ -89,8 +86,8 @@ run the discovery again later outdoors.
 ### 5. Enable touch (for the QR code)
 
 In App mode, EdgeTX only passes taps to the widget after you **long-press the screen once**.
-Until then the header shows "Für Touch: lang drücken" (long-press for touch). Leave this mode
-with a **long press on RTN**. You need to do this again after restarting the radio.
+Until then the header shows "For touch: long-press". Leave this mode with a **long press on
+RTN**. You need to do this again after restarting the radio.
 
 ### Updating to a new version
 
@@ -102,10 +99,10 @@ folder on the SD card. EdgeTX recreates them on the next start.
 
 ### Widget
 
-| Setting (on screen) | Meaning |
+| Setting | Meaning |
 |---|---|
-| Akku-Zellen (0 = automatisch) | Battery cells. Default 6 (6S). With 0 the widget estimates the cell count from the voltage. |
-| Motor-Drehzahl abfragen | Motor RPM polling: Aus (off) / Normal / Schnell (fast). Fast updates more often but uses more link bandwidth. |
+| Battery cells (0 = auto) | Default 6 (6S). With 0 the widget estimates the cell count from the voltage. |
+| Poll motor RPM | Off / Normal / Fast. Fast updates more often but uses more link bandwidth. |
 
 ### Betaflight
 
@@ -137,16 +134,16 @@ shown in the window.
 
 | Shown on screen | Meaning and fix |
 |---|---|
-| **Für Touch: lang drücken** (header) | Taps don't reach the widget yet. Long-press the screen once. |
-| **KEIN SIGNAL** | No link to the drone: battery unplugged or out of range. |
-| **SIGNAL WEG!** (flashing) | Link lost in flight. The last position is shown in yellow in the GPS tile and the QR code. |
-| **GESPERRT** + reason | Betaflight blocks arming. The reason is shown below, e.g. "Gas nicht ganz unten" (throttle not fully down). |
+| **For touch: long-press** (header) | Taps don't reach the widget yet. Long-press the screen once. |
+| **NO SIGNAL** | No link to the drone: battery unplugged or out of range. |
+| **LINK LOST!** (flashing) | Link lost in flight. The last position is shown in yellow in the GPS tile and the QR code. |
+| **BLOCKED** + reason | Betaflight blocks arming. The reason is shown below, e.g. "Throttle not low". |
 | **STATUS ?** | The flight mode sensor `FM` is missing. Check telemetry in Betaflight and discover sensors again. |
-| Motors: **warte auf Daten…** | Waiting for Betaflight's reply. Over ELRS this takes a few seconds. |
-| Motors: **ESC sendet keine Drehzahl** | Bidirectional DShot is on, but the ESC doesn't reply (BLHeli_S without Bluejay). Flash Bluejay or set `dshot_bidir = OFF`. |
-| Motors: **Keine Drehzahl: bidir. DShot an?** | The drone is armed but all RPMs are 0: `dshot_bidir` is off. |
-| GPS: **fehlt** / **Keine GPS-Daten** | Betaflight sends no GPS data. Enable GPS in Betaflight and discover sensors again. |
-| GPS: **sucht…** | The GPS delivers data but has no fix yet. Go outdoors and wait a few minutes. |
+| Motors: **waiting for data...** | Waiting for Betaflight's reply. Over ELRS this takes a few seconds. |
+| Motors: **ESC sends no RPM** | Bidirectional DShot is on, but the ESC doesn't reply (BLHeli_S without Bluejay). Flash Bluejay or set `dshot_bidir = OFF`. |
+| Motors: **No RPM: bidir. DShot on?** | The drone is armed but all RPMs are 0: `dshot_bidir` is off. |
+| GPS: **missing** / **No GPS data** | Betaflight sends no GPS data. Enable GPS in Betaflight and discover sensors again. |
+| GPS: **no fix yet** | The GPS delivers data but has no fix yet. Go outdoors and wait a few minutes. |
 
 If the dashboard is replaced by a message such as `ERROR in refresh(): …`, please report it
 as an issue.
@@ -156,7 +153,7 @@ as an issue.
 - **[docs/ANLEITUNG.md](docs/ANLEITUNG.md)** (German): detailed guide. It explains how the
   values are derived (arming detection, flight time, MSP requests), what to check on the real
   radio, and how the PC preview works.
-- **[design/](design/):** first sketch, wireframe and preview images of all states.
+- **[design/](design/):** first sketch, wireframe and early preview images.
 - **[docs/EdgeTX_Handbuch_DE.pdf](docs/EdgeTX_Handbuch_DE.pdf):** EdgeTX user manual in German.
 
 ## Project structure

@@ -7,14 +7,17 @@ Telemetrie-Widget für **EdgeTX** auf der **RadioMaster TX16S MK3** (800×480), 
 alles, was die Drohne funkt. Akku, Flugzeit und Status sind groß und in Ampelfarben, damit
 es auch ein Kind auf einen Blick versteht.
 
-![Vapor Dashboard im Flug](docs/img/dashboard_flug.png)
+Die Beschriftungen auf dem Bildschirm sind englisch. Diese Seite erklärt, was sie bedeuten.
+
+![Vapor Dashboard im Flug](docs/img/dashboard_flight.png)
 
 ## Funktionen
 
 - **Drohnen-Akku** als großer Balken mit Prozent, Spannung (gesamt und pro Zelle), Strom und
-  verbrauchten mAh. Unter 25 % blinkt „LANDEN!“.
-- **Status** im Klartext: GESICHERT, SCHARF, GESPERRT (mit Grund, z. B. „Gas nicht ganz
-  unten“), FAILSAFE oder KEIN SIGNAL. Darunter steht der Flugmodus.
+  verbrauchten mAh. Unter 25 % blinkt „LAND!“ (landen).
+- **Status** im Klartext: DISARMED (gesichert), ARMED (scharf), BLOCKED (Start gesperrt,
+  mit Grund, z. B. „Throttle not low“ = Gas nicht ganz unten), FAILSAFE oder NO SIGNAL
+  (keine Verbindung). Darunter steht der Flugmodus.
 - **Flugzeit**, die nur läuft, solange die Drohne scharf ist. Ein neuer Akku setzt sie zurück.
 - **Motoren** als Drohne von oben, mit der Drehzahl jedes Motors und der ESC-Temperatur.
 - **Funk:** Verbindungsqualität, Signal, SNR, Paketrate, Sendeleistung und Rückkanal.
@@ -28,12 +31,12 @@ es auch ein Kind auf einen Blick versteht.
 
 | | |
 |:---:|:---:|
-| ![Gesichert](docs/img/dashboard_gesichert.png) | ![Gesperrt](docs/img/dashboard_gesperrt.png) |
+| ![Gesichert](docs/img/dashboard_disarmed.png) | ![Gesperrt](docs/img/dashboard_blocked.png) |
 | Gesichert und startklar | Start gesperrt, mit Grund |
-| ![Akku fast leer](docs/img/dashboard_akku_leer.png) | ![Signal weg](docs/img/dashboard_signal_weg.png) |
+| ![Akku fast leer](docs/img/dashboard_battery_low.png) | ![Signal weg](docs/img/dashboard_link_lost.png) |
 | Akku fast leer, Motor 3 steht, Motor 2 warm | Signal im Flug verloren, letzte Position in Gelb |
 
-![QR-Code mit der letzten Position](docs/img/qr_letzte_position.png)
+![QR-Code mit der letzten Position](docs/img/qr_last_position.png)
 
 *Die Bilder stammen aus der PC-Vorschau mit simulierter Telemetrie, in Originalgröße und
 mit den EdgeTX-Schriften.*
@@ -90,8 +93,8 @@ Gegebenenfalls die Suche später im Freien noch einmal starten.
 
 EdgeTX gibt Fingertipps im App-Modus erst an das Widget weiter, wenn man **einmal lange auf
 den Bildschirm drückt**. Solange das nicht passiert ist, steht in der Kopfzeile
-„Für Touch: lang drücken“. Zurück geht es mit **langem Druck auf RTN**. Nach einem Neustart
-der Funke ist das wieder nötig.
+„For touch: long-press“ (für Touch lang drücken). Zurück geht es mit **langem Druck auf
+RTN**. Nach einem Neustart der Funke ist das wieder nötig.
 
 ### Update auf eine neue Version
 
@@ -104,10 +107,10 @@ beim nächsten Start neu an.
 
 ### Widget
 
-| Einstellung | Bedeutung |
+| Einstellung (auf dem Bildschirm) | Bedeutung |
 |---|---|
-| Akku-Zellen (0 = automatisch) | Standard 6 (6S). Bei 0 schätzt das Widget die Zellzahl aus der Spannung. |
-| Motor-Drehzahl abfragen | Aus / Normal / Schnell. „Schnell“ aktualisiert öfter, braucht aber mehr Funk-Bandbreite. |
+| Battery cells (0 = auto) | Akku-Zellen. Standard 6 (6S). Bei 0 schätzt das Widget die Zellzahl aus der Spannung. |
+| Poll motor RPM | Motordrehzahl abfragen: Off (aus) / Normal / Fast (schnell). „Fast“ aktualisiert öfter, braucht aber mehr Funk-Bandbreite. |
 
 ### Betaflight
 
@@ -139,16 +142,16 @@ iPhones erkennen `geo:`-Links mit der Kamera nicht, dort die Koordinaten aus dem
 
 | Anzeige | Bedeutung und Abhilfe |
 |---|---|
-| **Für Touch: lang drücken** (Kopfzeile) | Fingertipps kommen noch nicht beim Widget an. Einmal lange auf den Bildschirm drücken. |
-| **KEIN SIGNAL** | Keine Verbindung zur Drohne: Akku ab oder außer Reichweite. |
-| **SIGNAL WEG!** (blinkt) | Verbindung im Flug verloren. Die letzte Position steht gelb im GPS-Feld und im QR-Code. |
-| **GESPERRT** + Grund | Betaflight verhindert den Start. Der Grund steht darunter, z. B. „Gas nicht ganz unten“. |
+| **For touch: long-press** (Kopfzeile) | Fingertipps kommen noch nicht beim Widget an. Einmal lange auf den Bildschirm drücken. |
+| **NO SIGNAL** | Keine Verbindung zur Drohne: Akku ab oder außer Reichweite. |
+| **LINK LOST!** (blinkt) | Verbindung im Flug verloren. Die letzte Position steht gelb im GPS-Feld und im QR-Code. |
+| **BLOCKED** + Grund | Betaflight verhindert den Start. Der Grund steht darunter, z. B. „Throttle not low“ (Gas nicht ganz unten). |
 | **STATUS ?** | Der Flugmodus-Sensor `FM` fehlt. Telemetrie in Betaflight prüfen, Sensoren neu suchen. |
-| Motoren: **warte auf Daten…** | Die Antwort von Betaflight ist unterwegs. Über ELRS dauert das ein paar Sekunden. |
-| Motoren: **ESC sendet keine Drehzahl** | Bidirektionales DShot ist an, die ESC antwortet aber nicht (BLHeli_S ohne Bluejay). Bluejay flashen oder `dshot_bidir = OFF`. |
-| Motoren: **Keine Drehzahl: bidir. DShot an?** | Die Drohne ist scharf, aber alle Drehzahlen sind 0: `dshot_bidir` ist aus. |
-| GPS: **fehlt** / **Keine GPS-Daten** | Betaflight schickt keine GPS-Daten. GPS in Betaflight einschalten, Sensoren neu suchen. |
-| GPS: **sucht…** | Das GPS liefert Daten, hat aber noch keinen Fix. Ins Freie gehen und ein paar Minuten warten. |
+| Motoren: **waiting for data...** | Die Antwort von Betaflight ist unterwegs. Über ELRS dauert das ein paar Sekunden. |
+| Motoren: **ESC sends no RPM** | Bidirektionales DShot ist an, die ESC antwortet aber nicht (BLHeli_S ohne Bluejay). Bluejay flashen oder `dshot_bidir = OFF`. |
+| Motoren: **No RPM: bidir. DShot on?** | Die Drohne ist scharf, aber alle Drehzahlen sind 0: `dshot_bidir` ist aus. |
+| GPS: **missing** / **No GPS data** | Betaflight schickt keine GPS-Daten. GPS in Betaflight einschalten, Sensoren neu suchen. |
+| GPS: **no fix yet** | Das GPS liefert Daten, hat aber noch keinen Fix. Ins Freie gehen und ein paar Minuten warten. |
 
 Taucht statt des Dashboards eine Meldung wie `ERROR in refresh(): …` auf, bitte die Meldung
 als Issue melden.
@@ -158,7 +161,7 @@ als Issue melden.
 - **[docs/ANLEITUNG.md](docs/ANLEITUNG.md):** ausführliche Anleitung. Sie erklärt, wie die
   Werte entstehen (Scharf-Erkennung, Flugzeit, MSP-Abfragen), was am echten Gerät zu prüfen
   ist und wie die PC-Vorschau funktioniert.
-- **[design/](design/):** erste Skizze, Wireframe und Vorschaubilder aller Zustände.
+- **[design/](design/):** erste Skizze, Wireframe und frühe Vorschaubilder.
 - **[docs/EdgeTX_Handbuch_DE.pdf](docs/EdgeTX_Handbuch_DE.pdf):** EdgeTX-Benutzerhandbuch
   auf Deutsch.
 

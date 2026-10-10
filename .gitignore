@@ -3,3 +3,4 @@ tools/preview/fonts/
 tools/preview/out/
 __pycache__/
 tools/
+/tools/preview/preview.py

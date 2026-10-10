@@ -1,10 +1,10 @@
--- Liest die Telemetrie der Drohne (ELRS/CRSF + Betaflight) und leitet
--- daraus die Anzeige-Zustaende ab: Verbindung, Scharf/Gesichert, Flugzeit,
--- Akku, Lage, GPS-Heimpunkt und Funkwerte.
+-- Reads the drone's telemetry (ELRS/CRSF + Betaflight) and derives the
+-- display states from it: link, armed/disarmed, flight time, battery,
+-- attitude, GPS home point and link values.
 
 local M = {}
 
--- EdgeTX-Sensornamen der CRSF-Telemetrie (EdgeTX 2.12, telemetry/crossfire.cpp).
+-- EdgeTX sensor names of the CRSF telemetry (EdgeTX 2.12, telemetry/crossfire.cpp).
 local SENSORS = {
   volt = "RxBt", curr = "Curr", capa = "Capa", pct = "Bat%",
   fm = "FM",
@@ -15,18 +15,18 @@ local SENSORS = {
   rfmd = "RFMD", tpwr = "TPWR", trss = "TRSS", tqly = "TQly", tsnr = "TSNR",
 }
 
-local RESCAN_TICKS = 200     -- fehlende Sensoren alle 2 s erneut suchen
-local NEW_PACK_GAP = 300     -- mind. 3 s ohne Verbindung (gesichert) = Akkuwechsel
-local CAPA_DROP = 20         -- mAh-Zaehler faellt => FC neu gestartet = neuer Akku
+local RESCAN_TICKS = 200     -- look for missing sensors again every 2 s
+local NEW_PACK_GAP = 300     -- at least 3 s without link (disarmed) = battery swap
+local CAPA_DROP = 20         -- mAh counter drops => FC restarted = new battery
 local RAD_TO_DEG = 180 / math.pi
 
 local LASTPOS_FILE = "/WIDGETS/VAPORDASH/lastpos.txt"
-local SAVE_INTERVAL = 500    -- Position hoechstens alle 5 s speichern ...
-local SAVE_MIN_MOVE = 3      -- ... und nur, wenn sie sich um 3 m bewegt hat
+local SAVE_INTERVAL = 500    -- save the position at most every 5 s ...
+local SAVE_MIN_MOVE = 3      -- ... and only if it moved by 3 m
 
--- RFMD ist der rohe ELRS-Enum-Wert (expresslrs_RFrates_e). Er hat sich
--- zwischen ELRS 3.x und 4.x geaendert; beide Tabellen stammen aus
--- src/include/common.h der Tags 3.6.3 bzw. 4.1.0.
+-- RFMD is the raw ELRS enum value (expresslrs_RFrates_e). It changed
+-- between ELRS 3.x and 4.x; both tables come from src/include/common.h
+-- of the tags 3.6.3 and 4.1.0.
 local RATE_3X = {
   [0] = 4, [1] = 25, [2] = 50, [3] = 100, [4] = 100, [5] = 150, [6] = 200,
   [7] = 250, [8] = 333, [9] = 500, [10] = 250, [11] = 500, [12] = 500,
@@ -48,7 +48,7 @@ local function clamp(v, lo, hi)
   return v
 end
 
--- Ruhespannung pro Zelle -> grobe Restladung, nur falls "Bat%" fehlt.
+-- Resting voltage per cell -> rough remaining charge, only if "Bat%" is missing.
 local function cellVoltToPct(v)
   return clamp(math.floor((v - 3.5) / 0.7 * 100 + 0.5), 0, 100)
 end
@@ -62,8 +62,8 @@ local function distance(lat1, lon1, lat2, lon2)
   return 2 * 6371000 * math.atan(math.sqrt(a), math.sqrt(1 - a))
 end
 
--- Betaflight schickt Winkel in Radiant; falls ein Sensor auf Grad
--- umgestellt wurde, ist der Wert schon groesser als 2*pi.
+-- Betaflight sends angles in radians; if a sensor was switched to degrees,
+-- the value is already larger than 2*pi.
 local function toDegrees(v)
   if v == nil then return nil end
   if math.abs(v) <= 6.3 then return v * RAD_TO_DEG end
@@ -78,7 +78,7 @@ function M.new()
     arm = "offline", mode = nil, gpsWait = false,
     flightTicks = 0, lastTick = nil, timerRunning = false,
     cells = nil, home = nil, lastCapa = nil,
-    pack = 1,   -- wird bei jedem neuen Akku hochgezaehlt
+    pack = 1,   -- incremented with every new battery
   }
 end
 
@@ -131,16 +131,16 @@ local function updateArmState(t)
     return
   end
 
-  -- Strings haben in der Widget-Umgebung keine Methoden: string.sub(fm, ...) nutzen.
+  -- Strings have no methods in the widget environment: use string.sub(fm, ...).
   if string.sub(fm, 1, 4) == "!FS!" then
     t.arm = "failsafe"
     t.mode = "!FS!"
     return
   end
 
-  -- Betaflight haengt an den Flugmodus an: "*" = gesichert (startklar),
-  -- "!" = Start gesperrt, "?" = gesichert, aber GPS-Rettung nicht bereit.
-  -- Kein Zeichen = scharf (telemetry/crsf.c, crsfFrameFlightMode).
+  -- Betaflight appends to the flight mode: "*" = disarmed (ready to arm),
+  -- "!" = arming blocked, "?" = disarmed, but GPS Rescue not ready.
+  -- No character = armed (telemetry/crsf.c, crsfFrameFlightMode).
   local last = string.sub(fm, -1)
   local base = fm
   if last == "*" or last == "!" or last == "?" then
@@ -166,7 +166,7 @@ local function updateBattery(t, cellsOption)
 
   local cells = (cellsOption and cellsOption > 0) and cellsOption or nil
   if not cells and t.volt and t.volt > 2 then
-    -- Zellzahl aus der Spannung schaetzen, waehrend eines Akkus nie verringern.
+    -- Estimate the cell count from the voltage, never lower it during one battery.
     local n = math.ceil(t.volt / 4.35)
     if not t.cells or n > t.cells then t.cells = n end
     cells = t.cells
@@ -184,14 +184,14 @@ local function updateBattery(t, cellsOption)
 end
 
 -------------------------------------------------------------------------------
--- Letzte Position auf der SD-Karte, damit sie einen Neustart der Funke
--- uebersteht (z. B. nach einem Absturz). Format: lat;lon;hoehe;zeit;sats
+-- Last position on the SD card, so it survives a restart of the radio
+-- (e.g. after a crash). Format: lat;lon;alt;time;sats
 -------------------------------------------------------------------------------
 
 local function dateTimeText()
   local dt = getDateTime and getDateTime()
   if not dt or not dt.year then return nil end
-  return string.format("%02d.%02d.%04d %02d:%02d:%02d", dt.day, dt.mon, dt.year, dt.hour, dt.min, dt.sec)
+  return string.format("%04d-%02d-%02d %02d:%02d:%02d", dt.year, dt.mon, dt.day, dt.hour, dt.min, dt.sec)
 end
 
 local function savePosition(t, now)
@@ -205,7 +205,7 @@ local function savePosition(t, now)
   t.savedLat, t.savedLon, t.savedAt = t.lat, t.lon, now
 end
 
--- Beim Start aufrufen: gesicherte Position wieder einlesen.
+-- Call at startup: read the saved position back in.
 function M.loadPosition(t)
   if not (io and io.open) then return end
   local f = io.open(LASTPOS_FILE, "r")
@@ -248,7 +248,7 @@ local function updateGps(t, justArmed, now)
   t.speed = v.speed
   t.galt = v.galt
 
-  -- Heimpunkt: beim Scharfschalten setzen, vorher den ersten guten Fix nehmen.
+  -- Home point: set when arming, before that use the first good fix.
   if t.fix and (justArmed or (not t.home and (t.sats or 0) >= 6)) then
     t.home = { lat = t.lat, lon = t.lon }
   end
@@ -305,9 +305,9 @@ local function updateRadio(t)
   end
 end
 
--- Einmal pro refresh()/background() aufrufen.
--- now: getTime() (10-ms-Ticks); cellsOption: 0 = automatisch;
--- elrsMajor: ELRS-Hauptversion des Sendemoduls (fuer RFMD -> Hz) oder nil.
+-- Call once per refresh()/background().
+-- now: getTime() (10 ms ticks); cellsOption: 0 = auto;
+-- elrsMajor: ELRS major version of the TX module (for RFMD -> Hz) or nil.
 function M.update(t, now, cellsOption, elrsMajor)
   resolveSensors(t, now)
 
@@ -323,14 +323,14 @@ function M.update(t, now, cellsOption, elrsMajor)
   elseif t.connected and not connected then
     t.lostAt = now
     t.lostWhileArmed = (t.arm == "armed" or t.arm == "failsafe")
-    -- Verbindung weg: letzte bekannte Position sofort sichern
+    -- Link lost: save the last known position right away
     if t.lat and (t.lat ~= t.savedLat or t.lon ~= t.savedLon) then
       savePosition(t, now)
     end
   end
   t.connected = connected
 
-  -- Ohne Verbindung bleiben die letzten Werte stehen (z. B. letzte GPS-Position).
+  -- Without a link the last values stay (e.g. the last GPS position).
   if connected then
     readSensors(t)
     local capa = t.v.capa
@@ -345,7 +345,7 @@ function M.update(t, now, cellsOption, elrsMajor)
   local flying = (t.arm == "armed" or t.arm == "failsafe")
   local wasFlying = (prevArm == "armed" or prevArm == "failsafe")
 
-  -- Flugzeit laeuft nur, solange die Drohne scharf ist.
+  -- Flight time only runs while the drone is armed.
   local dt = t.lastTick and (now - t.lastTick) or 0
   t.lastTick = now
   if flying and wasFlying and dt > 0 then

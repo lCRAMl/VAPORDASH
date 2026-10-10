@@ -1,8 +1,8 @@
--- Direkte CRSF-Kommunikation ueber das ELRS-Modul:
---  * Geraete-Info (0x28/0x29): ELRS-Version von Sendemodul und Empfaenger
---  * MSP ueber CRSF (0x7A/0x7B) an Betaflight: Motordrehzahlen,
---    Gruende fuer die Startsperre, Betaflight-Version
--- Rahmenaufbau wie in Betaflights telemetry/msp_shared.c (MSP v1).
+-- Direct CRSF communication through the ELRS module:
+--  * device info (0x28/0x29): ELRS version of TX module and receiver
+--  * MSP over CRSF (0x7A/0x7B) to Betaflight: motor RPM,
+--    reasons for blocked arming, Betaflight version
+-- Frame layout as in Betaflight's telemetry/msp_shared.c (MSP v1).
 
 local M = {}
 
@@ -21,17 +21,17 @@ local MSP_FC_VERSION = 3
 local MSP_MOTOR_TELEMETRY = 139
 local MSP_STATUS_EX = 150
 
--- Ueber ELRS kommen MSP-Antworten nur mit wenigen Byte pro Telemetrie-Paket
--- zurueck; die Motordaten (53 Byte) brauchen oft ueber 1,5 s. Eine neue
--- Anfrage, bevor die alte beantwortet ist, laesst Betaflight die laufende
--- Antwort abbrechen. Deshalb immer nur eine Anfrage und lange Wartezeit.
-local MSP_TIMEOUT = 500       -- 5 s ohne Antwort: Anfrage verwerfen
-local PING_INTERVAL = 300     -- Geraete-Info alle 3 s anfragen, bis alles bekannt ist
+-- Over ELRS, MSP replies come back with only a few bytes per telemetry
+-- packet; the motor data (53 bytes) often takes over 1.5 s. A new request
+-- before the old one is answered makes Betaflight abort the running reply.
+-- Hence only one request at a time and a long timeout.
+local MSP_TIMEOUT = 500       -- 5 s without reply: drop the request
+local PING_INTERVAL = 300     -- ask for device info every 3 s until everything is known
 local VERSION_INTERVAL = 500
-local STATUS_INTERVAL = 300   -- Sperrgrund aendert sich selten
+local STATUS_INTERVAL = 300   -- the blocking reason rarely changes
 local MOTOR_DATA_MAX_AGE = 800
 
--- Motor-Abfrage: Abstand in Ticks {scharf, gesichert, gesperrt} je Einstellung.
+-- Motor polling: interval in ticks {armed, disarmed, blocked} per setting.
 local MOTOR_INTERVALS = {
   normal = { 50, 200, 500 },
   fast = { 20, 100, 500 },
@@ -74,8 +74,8 @@ local function readString(data, off)
   return table.concat(chars), off + 1
 end
 
--- data[1] = Ziel, data[2] = Absender, danach Name, Seriennummer ("ELRS"),
--- Hardware- und Software-Version (je 4 Byte).
+-- data[1] = destination, data[2] = origin, then name, serial number ("ELRS"),
+-- hardware and software version (4 bytes each).
 local function parseDeviceInfo(s, data)
   local origin = data[2]
   if origin ~= ADDR_TX and origin ~= ADDR_RX then return end
@@ -102,15 +102,15 @@ local function handleMsp(s, cmd, buf, now)
       if rpm >= 2147483648 then rpm = 0 end
       motors[m] = {
         rpm = rpm,
-        invalid = u16(buf, base + 4),   -- DShot-Fehlerquote in 1/100 %, 10000 = keine Daten
-        temp = buf[base + 6],           -- 0 = keine Temperatur (z. B. ohne Bluejay-EDT)
+        invalid = u16(buf, base + 4),   -- DShot error rate in 1/100 %, 10000 = no data
+        temp = buf[base + 6],           -- 0 = no temperature (e.g. without Bluejay EDT)
       }
     end
     s.motors = motors
     s.motorsAt = now
     s.motorReplies = s.motorReplies + 1
   elseif cmd == MSP_STATUS_EX then
-    local i = 17 + (buf[16] or 0)       -- hinter den erweiterten Flugmodus-Flags
+    local i = 17 + (buf[16] or 0)       -- after the extended flight mode flags
     if #buf >= i + 4 then
       s.armingFlags = u32(buf, i + 1)
       s.armingAt = now
@@ -174,9 +174,9 @@ local function mspRequest(s, cmd, now)
     s.pendingCmd = nil
   end
   if not crossfireTelemetryPush() then return false end
-  local status = 0x30 + s.seq           -- MSP v1 + Start-Bit + Sequenznummer
+  local status = 0x30 + s.seq           -- MSP v1 + start bit + sequence number
   s.seq = (s.seq + 1) % 16
-  -- Nutzdaten: Status, Laenge 0, Befehl, Pruefsumme, aufgefuellt auf 8 Byte
+  -- Payload: status, length 0, command, checksum, padded to 8 bytes
   local ok = crossfireTelemetryPush(FRAME_MSP_REQ,
     { ADDR_FC, ADDR_RADIO, status, 0, cmd, cmd, 0, 0, 0, 0 })
   if ok then
@@ -186,7 +186,7 @@ local function mspRequest(s, cmd, now)
   return ok
 end
 
--- Eingehende CRSF-Rahmen abholen (nur im Vordergrund aufrufen).
+-- Fetch incoming CRSF frames (only call in the foreground).
 function M.poll(s, now)
   if not available() then return end
   for _ = 1, 8 do
@@ -200,7 +200,7 @@ function M.poll(s, now)
   end
 end
 
--- Anfragen planen. tel: Zustand aus telemetry.lua, motorMode: "off"/"normal"/"fast".
+-- Schedule requests. tel: state from telemetry.lua, motorMode: "off"/"normal"/"fast".
 function M.schedule(s, now, tel, motorMode)
   if s.pack ~= tel.pack then
     s.pack = tel.pack
@@ -215,7 +215,7 @@ function M.schedule(s, now, tel, motorMode)
   end
   if not available() then return end
 
-  -- Geraete-Info, bis Sendemodul (und bei Verbindung der Empfaenger) bekannt sind.
+  -- Device info until the TX module (and, when connected, the receiver) are known.
   if (not s.tx or (tel.connected and not s.rx)) and now - s.lastPing >= PING_INTERVAL then
     if crossfireTelemetryPush() then
       crossfireTelemetryPush(FRAME_PING, { ADDR_BROADCAST, ADDR_RADIO })
@@ -250,7 +250,7 @@ function M.schedule(s, now, tel, motorMode)
   end
 end
 
--- Laufende ELRS-Hauptversion des Sendemoduls (fuer die RFMD-Tabelle) oder nil.
+-- Running ELRS major version of the TX module (for the RFMD table) or nil.
 function M.elrsMajor(s)
   return s.tx and s.tx.major or nil
 end

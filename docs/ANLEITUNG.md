@@ -6,22 +6,26 @@ Es zeigt alles, was die Drohne über ELRS liefert, und ist so gebaut, dass
 man es auf einen Blick versteht. Grün heißt gut, gelb heißt aufpassen,
 rot heißt Gefahr.
 
-![Vorschau im Flug](../design/mockups/vorschau_flug.png)
+Die Beschriftungen im Widget sind englisch. In Anführungszeichen stehen sie hier so, wie sie
+auf dem Bildschirm erscheinen.
 
-Alle Zustände (gesichert, scharf, gesperrt, Akku leer, Failsafe, kein Signal …):
-[design/mockups/vorschau_alle_zustaende.png](../design/mockups/vorschau_alle_zustaende.png)
+![Vorschau im Flug](img/dashboard_flight.png)
+
+Weitere Zustände zeigt die [README](../README.de.md#screenshots). Alle Zustände (gesichert,
+scharf, gesperrt, Akku leer, Failsafe, kein Signal …) erzeugt die
+[Vorschau am PC](#vorschau-am-pc) als Übersicht in `tools/preview/out/overview.png`.
 
 ## Aufbau
 
 | Bereich | Inhalt |
 |---|---|
-| **Kopfzeile** | Modellname, Verbindung (Funk-Symbol), Akku der Funke |
-| **Drohnen-Akku** (groß) | Akku-Balken mit %, Spannung gesamt und pro Zelle, Strom, verbrauchte mAh. Unter 25 % blinkt „LANDEN!“ |
-| **Status** (groß) | GESICHERT / SCHARF / GESPERRT (mit Grund) / FAILSAFE / KEIN SIGNAL, darunter der Flugmodus |
-| **Flugzeit** (groß) | läuft nur, solange die Drohne scharf ist |
-| **Motoren** | Drohne von oben, Drehzahl jedes Motors (U/min), ESC-Temperatur falls vorhanden |
-| **Funk** | Verbindungsqualität als Balken, Signal (dBm), SNR, Paketrate, Sendeleistung, Rückkanal |
-| **Lage & Höhe** | künstlicher Horizont, Höhe, Steigen/Sinken, Neigung, Rollen, Kurs |
+| **Kopfzeile** | Modellname, Verbindung (Funk-Symbol), Akku der Funke („Radio“) |
+| **DRONE BATTERY** (Drohnen-Akku, groß) | Akku-Balken mit %, Spannung gesamt und pro Zelle, Strom, verbrauchte mAh. Unter 25 % blinkt „LAND!“ |
+| **STATUS** (groß) | DISARMED (gesichert) / ARMED (scharf) / BLOCKED (gesperrt, mit Grund) / FAILSAFE / NO SIGNAL (kein Signal), darunter der Flugmodus |
+| **FLIGHT TIME** (Flugzeit, groß) | läuft nur, solange die Drohne scharf ist |
+| **MOTORS** (Motoren) | Drohne von oben, Drehzahl jedes Motors (RPM = U/min), ESC-Temperatur falls vorhanden |
+| **LINK** (Funk) | Verbindungsqualität als Balken, Signal (dBm), SNR, Paketrate, Sendeleistung, Rückkanal („Downlink“) |
+| **ATTITUDE & ALT.** (Lage & Höhe) | künstlicher Horizont, Höhe, Steigen/Sinken, Neigung („Pitch“), Rollen („Roll“), Kurs („Heading“) |
 | **GPS** | Satelliten, Tempo, Entfernung zum Startpunkt, GPS-Höhe, Koordinaten |
 | **Fußzeile** | Datum, Uhrzeit, Versionen von EdgeTX, ELRS (Funke + Drohne) und Betaflight |
 
@@ -39,7 +43,7 @@ Alle Zustände (gesichert, scharf, gesperrt, Akku leer, Failsafe, kein Signal �
 
 1. **Touch einschalten:** einmal **lange auf den Bildschirm drücken**. EdgeTX gibt
    Fingertipps erst dann an das Widget weiter (Vollbild-Modus). Solange das nicht passiert
-   ist, steht in der Kopfzeile „Für Touch: lang drücken“. Zurück in den normalen Modus geht
+   ist, steht in der Kopfzeile „For touch: long-press“. Zurück in den normalen Modus geht
    es mit **langem Druck auf RTN**.
 2. **GPS-Kachel antippen**, dann öffnet sich ein Fenster mit einem QR-Code der
    Drohnen-Position. Ein Tipp auf das Fenster schließt es wieder.
@@ -50,7 +54,7 @@ an der Position. Von dort kannst du direkt zur Drohne navigieren.
 - **Inhalt des Codes:** ein `geo:`-Link, z. B. `geo:52.521078,13.405000?q=52.521078,13.405000(VAPOR-D5)`.
   Die iPhone-Kamera erkennt `geo:`-Links nicht. Dort die Koordinaten aus dem Fenster abtippen.
 - **Position festgehalten:** Der Code zeigt die Position beim Öffnen. Ist die Drohne verbunden,
-  steht dort „AKTUELLE POSITION“, sonst „LETZTE POSITION“. Für einen neuen Stand das Fenster
+  steht dort „CURRENT POSITION“, sonst „LAST POSITION“. Für einen neuen Stand das Fenster
   schließen und neu öffnen.
 - **Daneben:** Koordinaten, Uhrzeit, GPS-Höhe, Satelliten und Entfernung zum Start.
 - **Gesichert auf der SD-Karte:** Die letzte Position steht in
@@ -58,7 +62,7 @@ an der Position. Von dort kannst du direkt zur Drohne navigieren.
   sich die Drohne mindestens 3 m bewegt hat) und sofort, wenn die Verbindung abreißt. So ist
   sie nach einem Absturz auch dann noch da, wenn die Funke zwischendurch aus war.
 - **Erstellung:** Den Code berechnet das Widget selbst. EdgeTX erlaubt einem Widget nur
-  begrenzte Rechenzeit pro Bild, deshalb steht nach dem Antippen kurz „QR wird erstellt…“.
+  begrenzte Rechenzeit pro Bild, deshalb steht nach dem Antippen kurz „Creating QR...“.
 
 ## Hintergrund
 
@@ -70,10 +74,10 @@ zeichnet das Widget einen dunklen Farbverlauf.
 
 ## Widget-Einstellungen
 
-| Einstellung | Bedeutung |
+| Einstellung (auf dem Bildschirm) | Bedeutung |
 |---|---|
-| Akku-Zellen (0 = automatisch) | Standard 6 (6S). Bei 0 wird die Zellzahl aus der Spannung geschätzt. |
-| Motor-Drehzahl abfragen | Aus / Normal / Schnell. „Schnell“ aktualisiert öfter, braucht aber mehr Funk-Bandbreite. |
+| Battery cells (0 = auto) | Akku-Zellen. Standard 6 (6S). Bei 0 wird die Zellzahl aus der Spannung geschätzt. |
+| Poll motor RPM | Motordrehzahl abfragen: Off (aus) / Normal / Fast (schnell). „Fast“ aktualisiert öfter, braucht aber mehr Funk-Bandbreite. |
 
 ## Einstellungen in Betaflight (2026.6)
 
@@ -91,7 +95,7 @@ zeichnet das Widget einen dunklen Farbverlauf.
   Bluejay-Firmware**, nicht mit dem originalen BLHeli_S 16.7. Prüfen und flashen geht mit
   [esc-configurator.com](https://esc-configurator.com) (Propeller ab!). Mit bidirektionalem
   DShot an, aber ohne Bluejay, sperrt Betaflight den Start. Das Widget zeigt dann
-  „GESPERRT, Motor-Telemetrie fehlt“.
+  „BLOCKED“ mit dem Grund „Motor telemetry missing“.
 - **ESC-Temperaturen** zusätzlich mit `set dshot_edt = ON` (Bluejay 0.20 oder neuer).
 - **GPS:** Im Tab „Konfiguration“ GPS einschalten (Protokoll UBLOX, Auto-Konfiguration an),
   im Tab „Anschlüsse“ am richtigen UART „GPS“ wählen. Den ersten Fix gibt es nur unter freiem
@@ -120,11 +124,11 @@ Das Widget wurde mit einer nachgebauten EdgeTX-Umgebung getestet (siehe unten), 
 auf der Funke selbst. Beim ersten Einsatz bitte auf Folgendes achten:
 
 - **Künstlicher Horizont:** Drohne mit der Nase nach unten kippen. Der Horizont muss nach oben
-  wandern, und unter „Neigung“ muss „vorn“ stehen. Wenn es falsch herum ist, in
+  wandern, und bei „Pitch“ muss „fwd“ stehen. Wenn es falsch herum ist, in
   `lib/ui.lua` bei `drawHorizon` das Vorzeichen von `noseUp` umdrehen.
 - **Motor-Abfrage im Flug:** Wenn die Drehzahlen zu träge kommen, im ELRS-Lua-Skript ein
-  höheres Telemetrie-Verhältnis wählen (z. B. 1:4) oder die Abfrage auf „Schnell“ stellen.
-  Bei Problemen die Abfrage auf „Aus“ stellen.
+  höheres Telemetrie-Verhältnis wählen (z. B. 1:4) oder die Abfrage auf „Fast“ stellen.
+  Bei Problemen die Abfrage auf „Off“ stellen.
 
 ## Vorschau am PC
 
@@ -138,8 +142,9 @@ venv\Scripts\pip install lupa pillow
 venv\Scripts\python tools\preview\preview.py
 ```
 
-Die Bilder landen in `tools/preview/out/`. Die Schriften (Roboto, wie in EdgeTX) werden
-beim ersten Start heruntergeladen.
+Die Bilder landen in `tools/preview/out/`, dazu eine Übersicht aller Szenarien
+(`overview.png`). Die Screenshots in `docs/img/` sind Kopien davon. Die Schriften (Roboto,
+wie in EdgeTX) werden beim ersten Start heruntergeladen.
 
 Die Vorschau bildet einige Eigenheiten von EdgeTX nach:
 - **Keine Text-Methoden:** `s:gsub(...)` geht nicht, nur `string.gsub(s, ...)`.
@@ -167,7 +172,7 @@ WIDGETS/VAPORDASH/      -> kommt auf die SD-Karte nach /WIDGETS/
   lastpos.txt           wird auf der SD-Karte angelegt: letzte GPS-Position
   icons/                Symbole
   images/background.png Hintergrundbild (800x480), Kacheln sind durchsichtig
-design/                 Skizze, Wireframe, Vorschaubilder
-docs/                   EdgeTX-Handbuch (Deutsch)
+design/                 Skizze, Wireframe, frühe Vorschaubilder
+docs/                   Anleitung, Screenshots (img/), EdgeTX-Handbuch (Deutsch)
 tools/preview/          PC-Vorschau
 ```
