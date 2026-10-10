@@ -1,0 +1,19 @@
+# OS cruft
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor swap/temp files
+*.swp
+*.swo
+*~
+*.tmp
+
+# Von EdgeTX auf der SD-Karte erzeugter Bytecode
+*.luac
+
+# PC-Vorschau: Python-Umgebung, heruntergeladene Schriften, erzeugte Bilder
+venv/
+tools/preview/fonts/
+tools/preview/out/
+__pycache__/
